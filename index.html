@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8"/>
+	<link href="style.css" rel="stylesheet"/>
+	<title> Processamento de imagens em Canvas</title>
+	<!comment: MathJax para equações matemáticas em TeX>
+	<script type="text/javascript" async
+		src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML" async>
+	</script>
+</head>
+<body>
+	<h1>Leitura e processamento de imagens utilizando Canvas</h1>
+	<h2>Manipulação de histogramas em imagens</h2>
+	
+	<h2>Histograma de RGB</h2>
+	<p>A imagem original a ser trabalhada foi retirada do site Unsplash. Ao lado temos o histograma da distribuição RGB da imagem.</p>
+<figure>
+	<canvas id="imagemOriginal" width="400" height="580"></canvas>
+	<canvas id="rgbhistogram" width="400" height="580"></canvas>
+</figure>
+
+	<h2>Histograma de Luminância</h2>
+	<p>Realizando a conversão de RGB para HSL, é possível gerar o histograma de luminância da imagem.</p>
+	
+<figure>
+	<canvas id="lumhistogram" width="400" height="580"></canvas>
+</figure>
+
+	<h2>Modificação de Luminância</h2>
+	<p>Ao alterar a distribuição de frequência de cores muito claras e cores muito escuras, através do canal de luminância, aumentamos o contraste da imagem. Nesse caso, alterei em 30%.</p>
+	
+<figure>
+	<canvas id="imagemOutput" width="400" height="580"></canvas>
+</figure>
+
+<script>
+	var canvasOriginal = document.getElementById("imagemOriginal");
+	var ctxOriginal = canvasOriginal.getContext("2d");
+	
+	var canvasHist = document.getElementById("rgbhistogram");
+	var ctxHist = canvasHist.getContext("2d");
+	
+	var canvasLumHist = document.getElementById("lumhistogram");
+	var ctxLumHist = canvasLumHist.getContext("2d");
+	
+	var canvasOut = document.getElementById("imagemOutput");
+	var ctxOutput = canvasOut.getContext("2d");
+	
+	var imgOriginal = new Image();
+	var imgHist = new Image();
+	var imgLumHist = new Image();
+	
+	//image link
+	var imgUrl = "https://images.unsplash.com/photo-1627245126222-60185a8b671f?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=387&q=80";
+   
+	imgOriginal.crossOrigin = '';
+    imgOriginal.src = imgUrl;
+	imgOriginal.onload = function(){
+	ctxOriginal.drawImage(imgOriginal, 0, 0);
+	ctxHist.drawImage(imgHist, 0, 0);
+	ctxLumHist.drawImage(imgOriginal, 0, 0);
+	
+	imgHist = ctxOriginal.getImageData(0, 0, 400, 580);		
+	
+	//RGB arrays and histogram
+	function Histograma(x,y, color) {
+	ctxHist.beginPath();
+	ctxHist.moveTo(x, 580);
+	ctxHist.lineTo(x, 580-y);
+	ctxHist.strokeStyle = color;
+	ctxHist.stroke();
+	}
+
+	const r = [];
+	const g = [];
+	const b = [];	
+
+	for (let i = 0; i < imgHist.data.length; i += 4) {
+	
+		if ( isNaN(r[imgHist.data[i]]) )
+		{ r[imgHist.data[i]] = 0};
+		
+		r[imgHist.data[i]] += 1;
+		
+		if ( isNaN(g[imgHist.data[i+1]]) )
+		{ g[imgHist.data[i+1]] = 0};
+		
+		g[imgHist.data[i+1]] += 1;
+		
+		if ( isNaN(b[imgHist.data[i+2]]) )
+		{ b[imgHist.data[i+2]] = 0};
+		
+		b[imgHist.data[i+2]] += 1;
+	}	
+	
+	for(var i=0; i <= r.length; i++){
+		Histograma(i,r[i]/10,'red');
+	}	
+	for(var i=0; i <= g.length; i++){
+		Histograma([i],g[i]/10,'green');
+	}
+	for(var i=0; i <= b.length; i++){
+		Histograma([i],b[i]/10, 'blue');
+	}
+	
+	//rgb to hsl
+	const h = [];
+	const s = [];
+	const l = [];
+	
+	for (var i = 0; i <= r.length; i++) {
+		var max = Math.max(r[i], g[i], b[i]), min = Math.min(r[i], g[i], b[i]);
+		h[i], s[i], l[i] = (max + min) / 2;
+
+		if(max == min){
+			h[i] = s[i] = 0; 
+		}else{
+			var d = max - min;
+			s[i] = l[i] > 0.5 ? d / (2 - max - min) : d / (max + min);}
+        switch(max){ 
+            case r: h = (g[i] - b[i]) / d + (g[i] < b[i] ? 6 : 0); break;
+            case g: h = (b[i] - r[i]) / d + 2; break; 
+            case b: h = (r[i] - g[i]) / d + 4; break; 
+        } 
+        h[i] /= 6; 
+    }
+	
+	//luminance histogram
+	function Lum(x,y, color) {
+	ctxLumHist.beginPath();
+	ctxLumHist.moveTo(x, 580);
+	ctxLumHist.lineTo(x, 580-y);
+	ctxLumHist.strokeStyle = color;
+    ctxLumHist.stroke();
+	}
+	
+	for(var i=0; i <= l.length; i++){
+	Lum([i],l[i]/10, 'darkgray');
+	}
+	
+	//changing frequency distribution
+	for (let i = 0; i < imgHist.data.length; i += 4) {	
+		if ( imgHist.data[i] < 120 )
+		{imgHist.data[i] = imgHist.data[i] - imgHist.data[i]*0.3 };
+		
+		imgHist.data[i] = imgHist.data[i] + imgHist.data[i]*0.3;
+		
+		if ( imgHist.data[i+1] < 120 )
+		{imgHist.data[i+1] = imgHist.data[i+1] - imgHist.data[i+1]*0.3 };
+		
+		imgHist.data[i+1] = imgHist.data[i+1] + imgHist.data[i+1]*0.3;
+		
+		if ( imgHist.data[i+2] < 120 )
+		{imgHist.data[i+2] = imgHist.data[i+2] - imgHist.data[i+2]*0.3 };
+		
+		imgHist.data[i+2] = imgHist.data[i+2] + imgHist.data[i+2]*0.3;
+	}	
+	ctxOutput.putImageData(imgHist, 0, 0);
+	
+}
+</script>
+
+</body>
+</html>
